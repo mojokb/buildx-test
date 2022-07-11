@@ -1,0 +1,66 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - "main"
+
+
+jobs:
+  build-image:
+    runs-on: [self-hosted, gateway]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: setup docker buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          install: true
+          buildkitd-flags: --debug
+          endpoint: default
+          driver: kubernetes
+
+      - name: Inspect builder
+        run: |
+          echo "Name:      ${{ steps.buildx.outputs.name }}"
+          echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"
+          echo "Status:    ${{ steps.buildx.outputs.status }}"
+          echo "Flags:     ${{ steps.buildx.outputs.flags }}"
+          echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
+          echo "Base Ref:  ${{ github.base_ref }}"
+          echo "Ref name:  ${{ github.ref_name }}"
+
+      - name: Set credentials
+        uses: kanga333/variable-mapper@master
+        with:
+          key: ${{ github.base_ref }}
+          map: |
+            {
+              "main": {
+                "PHASE": "dev",
+                "REGISTRY_HOSTNAME": "harbor.bluewhale.kr:31013",
+                "REGISTRY_USERNAME": "mlops"
+                "REGISTRY_PASSWORD": "Mlops160321"
+              }
+            }
+      - name: Get HEAD
+        run: |
+          echo "HEAD=$(git log -1 --format=%H)" >> "$GITHUB_ENV"
+
+      - name: Login to container registry to push
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ env.REGISTRY_HOSTNAME }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: |
+            harbor.bluewhale.kr:31013/mlops-app/buildx-test:latest
+          cache-from: type=registry,ref=harbor.bluewhale.kr:31013/mlops-app/buildx-test:latest
+          cache-to: type=inline

@@ -1,0 +1,6 @@
+{
+  "threshold": 50,
+  "ignore": [
+    "k8s/charts/argo_event/templates/customresourcedefinition.yaml"
+  ]
+}
